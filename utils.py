@@ -5,21 +5,33 @@ from typing import Union, Optional, Tuple, Callable
 import matplotlib.pyplot as plt
 from copy import deepcopy
 
+@njit
+def identity(x: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
+    """The identity function. It's for the linear case and I literally stole it from Fabrizio:
+        https://github.com/fabridamicelli/echoes/blob/master/echoes/utils.py
+
+    Args:
+        x (Union[float, np.ndarray]): input. can be a float or an np array.
+
+    Returns:
+        Union[float, np.ndarray]: output. will be whatever the input is!
+    """    
+    return x
+
+@njit
+def tanh(x: Union[float, int, np.ndarray]) -> Union[float, np.ndarray]:
+    return np.tanh(x)
 
 @njit
 def simple_dynamical_system(adjacency_matrix:np.ndarray,
                                input_matrix:np.ndarray,
-                               function=Union[any, None],
-                               function_kwargs = Optional[None]) -> np.ndarray:
+                               function:Callable=identity) -> np.ndarray:
 
-    function_kwargs = function_kwargs if function_kwargs else {}
     X = np.zeros((input_matrix.shape[0], input_matrix.shape[1]))
-    if function:
-        for timepoint in range(input_matrix.shape[1] - 1):
-            X[:, timepoint + 1] = function(adjacency_matrix @ X[:, timepoint] + input_matrix[:,timepoint],**function_kwargs)
-    else:
-        for timepoint in range(input_matrix.shape[1] - 1):
-            X[:, timepoint + 1] = adjacency_matrix @ X[:, timepoint] + input_matrix[:,timepoint]
+
+    for timepoint in range(input_matrix.shape[1] - 1):
+        X[:, timepoint + 1] = function(adjacency_matrix @ X[:, timepoint] + input_matrix[:,timepoint])
+
     return X
 
 
