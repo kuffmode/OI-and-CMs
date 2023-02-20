@@ -57,8 +57,12 @@ def find_density(adjacency_matrix:np.ndarray) -> float:
     return np.where(adjacency_matrix!=0,1,0).sum()/adjacency_matrix.shape[0]**2
 
 
-def normer(data:Union[pd.DataFrame, np.ndarray]) -> Union[pd.DataFrame, np.ndarray]:
+def minmax_normalize(data:Union[pd.DataFrame, np.ndarray]) -> Union[pd.DataFrame, np.ndarray]:
     return (data - data.min()) / (data.max() - data.min())
+
+
+def log_normalize(adjacency_matrix:np.ndarray):
+    return np.nan_to_num(np.log(adjacency_matrix),neginf=0,posinf=0)
 
 
 def spectral_normalization(target_radius:float,
@@ -124,3 +128,4 @@ def make_influence_ratio(difference_matrix:pd.DataFrame,
 
 def check_symmetric(adjacency_matrix:np.ndarray, tol:float=1e-8) -> bool:
     return np.all(np.abs(adjacency_matrix-adjacency_matrix.T) < tol)
+
