@@ -25,38 +25,66 @@ def tanh(x: Union[float, int, np.ndarray]) -> Union[float, np.ndarray]:
     return np.tanh(x)
 
 
-@njit(fastmath=True)
+@njit
 def simple_dynamical_system(
     adjacency_matrix: np.ndarray,
     input_matrix: np.ndarray,
     function: Callable = identity,
+    coupling:float = 1.0,
 ) -> np.ndarray:
     X = np.zeros((input_matrix.shape[0], input_matrix.shape[1]))
-    for timepoint in prange(input_matrix.shape[1] - 1):
+    for timepoint in range(input_matrix.shape[1] - 1):
         X[:, timepoint + 1] = function(
-            adjacency_matrix @ X[:, timepoint] + input_matrix[:, timepoint]
+            (coupling * adjacency_matrix) @ X[:, timepoint] + input_matrix[:, timepoint]
         )
 
     return X
 
 
-@njit(fastmath=True,parallel=True)
-def differntial_model(
-    adjacency_matrix: np.ndarray,
-    input_matrix: np.ndarray,
-    delta: float = 1.0,
-    G: float = 1.0,
-    function:Callable = identity,
-) -> np.ndarray:
+@njit
+def differntial_model(adjacency_matrix:np.ndarray,
+                 input_matrix:np.ndarray, 
+                 coupling:float=1, 
+                 dt:float=0.001, 
+                 duration:int=10, 
+                 timescale:float=0.01,
+                 function:Callable = identity, 
+                 )->np.ndarray:
+    
+    N = input_matrix.shape[0]
+    T = np.arange(1, duration/dt + 1) # holds time steps
+    X = np.zeros((N, len(T)+1)) # holds variable x
+    
 
-    X = np.zeros((input_matrix.shape[0], input_matrix.shape[1]))
-    for timepoint in prange(input_matrix.shape[1] - 1):
+    dt = dt/timescale
+    for timepoint in range(input_matrix.shape[1] - 1):
         
-        X[:, timepoint + 1] = (1 - delta) * X[:, timepoint] + delta * function(
-            G * adjacency_matrix @ X[:, timepoint] + (np.sqrt(delta)*input_matrix[:, timepoint])
-        )
+        X[:, timepoint + 1] = ((1 - dt) * X[:, timepoint]) + dt * function(
+            (coupling * adjacency_matrix) @ X[:, timepoint] + input_matrix[:, timepoint])
     return X
 
+
+@njit
+def linear_model(adjacency_matrix:np.ndarray,
+                 input_matrix:np.ndarray, 
+                 coupling:float=1, 
+                 dt:float=0.001, 
+                 duration:int=10, 
+                 timescale:float=0.01, 
+                 )->np.ndarray:
+    
+    N = input_matrix.shape[0]
+    T = np.arange(1, duration/dt + 1) # holds time steps
+    X = np.zeros((N, len(T)+1)) # holds variable x
+    
+    for timepoint in range(1, 1 + len(T)): # loop over time
+        inp = coupling * adjacency_matrix.dot(X[:, timepoint-1]) + input_matrix[:, timepoint] # input vector
+        
+        for node in prange(N): # loop over nodes
+            X[node, timepoint] = X[node, timepoint-1] + (- X[node, timepoint-1] / timescale + inp[node]) * dt # model equations
+    return X
+
+ 
 
 def lesion_simple_nodes(
     complements: Tuple,
