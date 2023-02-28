@@ -10,7 +10,7 @@ rng = np.random.default_rng(seed=SEED)
 T = 100
 NOISE_STRENGTH = 0.5
 N_TRIALS = 20
-N_CORES = 50
+N_CORES = 100
 human = netneurotools.datasets.fetch_connectome("human_struct_scale125")
 connectivity = ut.spectral_normalization(0.9, human["conn"])
 

@@ -25,24 +25,24 @@ def tanh(x: Union[float, int, np.ndarray]) -> Union[float, np.ndarray]:
     return np.tanh(x)
 
 
+# @njit
+# def simple_dynamical_system(
+#     adjacency_matrix: np.ndarray,
+#     input_matrix: np.ndarray,
+#     function: Callable = identity,
+#     coupling:float = 1.0,
+# ) -> np.ndarray:
+#     X = np.zeros((input_matrix.shape[0], input_matrix.shape[1]))
+#     for timepoint in range(input_matrix.shape[1] - 1):
+#         X[:, timepoint + 1] = function(
+#             (coupling * adjacency_matrix) @ X[:, timepoint] + input_matrix[:, timepoint]
+#         )
+
+#     return X
+
+
 @njit
-def simple_dynamical_system(
-    adjacency_matrix: np.ndarray,
-    input_matrix: np.ndarray,
-    function: Callable = identity,
-    coupling:float = 1.0,
-) -> np.ndarray:
-    X = np.zeros((input_matrix.shape[0], input_matrix.shape[1]))
-    for timepoint in range(input_matrix.shape[1] - 1):
-        X[:, timepoint + 1] = function(
-            (coupling * adjacency_matrix) @ X[:, timepoint] + input_matrix[:, timepoint]
-        )
-
-    return X
-
-
-@njit
-def differntial_model(adjacency_matrix:np.ndarray,
+def simulate_dynamical_system(adjacency_matrix:np.ndarray,
                  input_matrix:np.ndarray, 
                  coupling:float=1, 
                  dt:float=0.001, 
@@ -61,6 +61,31 @@ def differntial_model(adjacency_matrix:np.ndarray,
         
         X[:, timepoint + 1] = ((1 - dt) * X[:, timepoint]) + dt * function(
             (coupling * adjacency_matrix) @ X[:, timepoint] + input_matrix[:, timepoint])
+    return X
+
+@njit()
+def simulate_dynamical_system_parallel(adjacency_matrix:np.ndarray,
+                       input_matrix:np.ndarray, 
+                       coupling:float=1, 
+                       dt:float=0.001, 
+                       duration:int=10, 
+                       timescale:float=0.01,
+                       function:Callable = identity, 
+                       )->np.ndarray:
+    
+    N = input_matrix.shape[0]
+    T = np.arange(1, duration/dt + 1) # holds time steps
+    X = np.zeros((N, len(T)+1)) # holds variable x
+
+    dt = dt/timescale
+    for timepoint in range(len(T)):
+        for node in prange(N):
+            if timepoint == 0:
+                X[node, timepoint] = input_matrix[node, timepoint]
+            else:
+                inputs = np.dot(coupling * adjacency_matrix[node, :], X[:, timepoint-1]) + input_matrix[node, timepoint]
+                X[node, timepoint] = (1 - dt) * X[node, timepoint-1] + dt * function(inputs)
+
     return X
 
 
