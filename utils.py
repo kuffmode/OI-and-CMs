@@ -89,44 +89,44 @@ def simulate_dynamical_system_parallel(adjacency_matrix:np.ndarray,
     return X
 
 
-@njit
-def linear_model(adjacency_matrix:np.ndarray,
-                 input_matrix:np.ndarray, 
-                 coupling:float=1, 
-                 dt:float=0.001, 
-                 duration:int=10, 
-                 timescale:float=0.01, 
-                 )->np.ndarray:
+# @njit
+# def linear_model(adjacency_matrix:np.ndarray,
+#                  input_matrix:np.ndarray, 
+#                  coupling:float=1, 
+#                  dt:float=0.001, 
+#                  duration:int=10, 
+#                  timescale:float=0.01, 
+#                  )->np.ndarray:
     
-    N = input_matrix.shape[0]
-    T = np.arange(1, duration/dt + 1) # holds time steps
-    X = np.zeros((N, len(T)+1)) # holds variable x
+#     N = input_matrix.shape[0]
+#     T = np.arange(1, duration/dt + 1) # holds time steps
+#     X = np.zeros((N, len(T)+1)) # holds variable x
     
-    for timepoint in range(1, 1 + len(T)): # loop over time
-        inp = coupling * adjacency_matrix.dot(X[:, timepoint-1]) + input_matrix[:, timepoint] # input vector
+#     for timepoint in range(1, 1 + len(T)): # loop over time
+#         inp = coupling * adjacency_matrix.dot(X[:, timepoint-1]) + input_matrix[:, timepoint] # input vector
         
-        for node in prange(N): # loop over nodes
-            X[node, timepoint] = X[node, timepoint-1] + (- X[node, timepoint-1] / timescale + inp[node]) * dt # model equations
-    return X
+#         for node in prange(N): # loop over nodes
+#             X[node, timepoint] = X[node, timepoint-1] + (- X[node, timepoint-1] / timescale + inp[node]) * dt # model equations
+#     return X
 
- 
 
 def lesion_simple_nodes(
     complements: Tuple,
     adjacency_matrix: np.ndarray,
     index: int,
     input: np.ndarray,
-    model: Callable = simple_dynamical_system,
-    model_kwargs=None,
+    model: Callable = simulate_dynamical_system,
+    model_kwargs:dict={},
 ) -> np.ndarray:
-    model_kwargs = model_kwargs if model_kwargs else {}
 
     lesioned_connectivity = deepcopy(adjacency_matrix)
     for target in complements:
         lesioned_connectivity[:, target] = 0.0
         lesioned_connectivity[target, :] = 0.0
 
-    dynamics = model(lesioned_connectivity, input, **model_kwargs)
+    dynamics = model(adjacency_matrix = lesioned_connectivity,
+                     input_matrix=input,
+                     **model_kwargs)
     lesioned_signal = dynamics[index]
     return lesioned_signal
 
