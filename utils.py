@@ -207,7 +207,7 @@ def brain_plotter(
     axis.view_init(*view)
     axis.axis("off")
     scaling = np.array([axis.get_xlim(), axis.get_ylim(), axis.get_zlim()])
-    axis.set_box_aspect(tuple(scaling[:, 1] / 2 - scaling[:, 0]))
+    axis.set_box_aspect(tuple(scaling[:, 1] / 1.2 - scaling[:, 0]))
     return axis
 
 
