@@ -14,7 +14,7 @@ G =0.74
 DURATION = 1
 
 N_TRIALS = 2
-N_CORES = -1
+N_CORES = 250
 
 consensus_mat = scipy.io.loadmat('Consensus_Connectomes.mat',simplify_cells=True,squeeze_me=True,chars_as_strings=True)
 connectivity = ut.spectral_normalization(1,consensus_mat['LauConsensus']['Matrices'][2][0])
@@ -39,7 +39,7 @@ for trial in range(N_TRIALS):
         parallelize_over_games=True,
         permutation_seed=trial,
     )
-    ci_mat.to_pickle(f"causal_modes_linear_weighted_{len(connectivity)}_{trial}.pickle")
+    ci_mat.to_pickle(f"causal_modes_l_w_{len(connectivity)}_{trial}.pickle")
 
 
 
