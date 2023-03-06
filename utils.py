@@ -47,7 +47,7 @@ def simulate_dynamical_system(adjacency_matrix:np.ndarray,
                  coupling:float=1, 
                  dt:float=0.001, 
                  duration:int=10, 
-                 timescale:float=0.01,
+                 timeconstant:float=0.01,
                  function:Callable = identity, 
                  )->np.ndarray:
     
@@ -56,7 +56,7 @@ def simulate_dynamical_system(adjacency_matrix:np.ndarray,
     X = np.zeros((N, len(T)+1)) # holds variable x
     
 
-    dt = dt/timescale
+    dt = dt/timeconstant
     for timepoint in range(input_matrix.shape[1] - 1):
         
         X[:, timepoint + 1] = ((1 - dt) * X[:, timepoint]) + dt * function(
@@ -69,7 +69,7 @@ def simulate_dynamical_system_parallel(adjacency_matrix:np.ndarray,
                        coupling:float=1, 
                        dt:float=0.001, 
                        duration:int=10, 
-                       timescale:float=0.01,
+                       timeconstant:float=0.01,
                        function:Callable = identity, 
                        )->np.ndarray:
     
@@ -77,7 +77,7 @@ def simulate_dynamical_system_parallel(adjacency_matrix:np.ndarray,
     T = np.arange(1, duration/dt + 1) # holds time steps
     X = np.zeros((N, len(T)+1)) # holds variable x
 
-    dt = dt/timescale
+    dt = dt/timeconstant
     for timepoint in range(len(T)):
         for node in prange(N):
             if timepoint == 0:
@@ -87,27 +87,6 @@ def simulate_dynamical_system_parallel(adjacency_matrix:np.ndarray,
                 X[node, timepoint] = (1 - dt) * X[node, timepoint-1] + dt * function(inputs)
 
     return X
-
-
-# @njit
-# def linear_model(adjacency_matrix:np.ndarray,
-#                  input_matrix:np.ndarray, 
-#                  coupling:float=1, 
-#                  dt:float=0.001, 
-#                  duration:int=10, 
-#                  timescale:float=0.01, 
-#                  )->np.ndarray:
-    
-#     N = input_matrix.shape[0]
-#     T = np.arange(1, duration/dt + 1) # holds time steps
-#     X = np.zeros((N, len(T)+1)) # holds variable x
-    
-#     for timepoint in range(1, 1 + len(T)): # loop over time
-#         inp = coupling * adjacency_matrix.dot(X[:, timepoint-1]) + input_matrix[:, timepoint] # input vector
-        
-#         for node in prange(N): # loop over nodes
-#             X[node, timepoint] = X[node, timepoint-1] + (- X[node, timepoint-1] / timescale + inp[node]) * dt # model equations
-#     return X
 
 
 def lesion_simple_nodes(

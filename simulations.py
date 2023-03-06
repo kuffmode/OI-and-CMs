@@ -13,7 +13,7 @@ TAU = 0.02
 G =0.74
 DURATION = 1
 
-N_TRIALS = 2
+N_TRIALS = 20
 N_CORES = 250
 
 consensus_mat = scipy.io.loadmat('Consensus_Connectomes.mat',simplify_cells=True,squeeze_me=True,chars_as_strings=True)
