@@ -40,7 +40,7 @@ for trial in prange(N_TRIALS):
         parallelize_over_games=True,
         permutation_seed=trial,
     )
-    ci_mat.to_pickle(f"causal_modes_l_w_{len(connectivity)}_{trial}.pickle")
+    ci_mat.to_pickle(f"results/causal_modes_l_w_{len(connectivity)}_{trial}.pickle")
 
 
 
