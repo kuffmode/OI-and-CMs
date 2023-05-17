@@ -22,6 +22,15 @@ def identity(x: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
 
 @njit
 def tanh(x: Union[float, int, np.ndarray]) -> Union[float, np.ndarray]:
+    """Computes the hyperbolic tangent of the input. Again, I stole this from Fabrizio:
+    https://github.com/fabridamicelli/echoes/blob/master/echoes/utils.py
+
+    Args:
+        x (Union[float, int, np.ndarray]): input. can be a float or an np array.
+
+    Returns:
+        Union[float, np.ndarray]: output, squashed between -1 and 1.
+    """
     return np.tanh(x)
 
 
@@ -34,6 +43,20 @@ def simulate_dynamical_system(adjacency_matrix:np.ndarray,
                  timeconstant:float=0.01,
                  function:Callable = identity, 
                  )->np.ndarray:
+    """Simulates a dynamical system described by the given paramteres.
+
+    Args:
+        adjacency_matrix (np.ndarray): The adjacency matrix (N,N; duh)
+        input_matrix (np.ndarray): Input of shape (N, T) where N is the number of nodes and T is the number of time steps.
+        coupling (float, optional): The coupling strength between each node (scales the adjacency_matrix). Defaults to 1.
+        dt (float, optional): The time step of the simulation. Defaults to 0.001.
+        duration (int, optional): The duration of the simulation in seconds. Defaults to 10.
+        timeconstant (float, optional): The time constant of the nodes, I think it's the same as the 'relaxation time'. Defaults to 0.01.
+        function (Callable, optional): The activation function. Defaults to identity, which means it's linear.
+
+    Returns:
+        np.ndarray: The state of the dynamical system at each time step so again, the shape is (N, T)
+    """
     
     N = input_matrix.shape[0]
     T = np.arange(1, duration/dt + 1) # holds time steps
@@ -56,6 +79,7 @@ def simulate_dynamical_system_parallel(adjacency_matrix:np.ndarray,
                        timeconstant:float=0.01,
                        function:Callable = identity, 
                        )->np.ndarray:
+    # TODO: Just add this to the above function as an argument! Parallel = True/False
     
     N = input_matrix.shape[0]
     T = np.arange(1, duration/dt + 1) # holds time steps
@@ -72,6 +96,49 @@ def simulate_dynamical_system_parallel(adjacency_matrix:np.ndarray,
 
     return X
 
+@njit
+def kuramoto_model(adjacency_matrix:np.ndarray, dt:float, T:int, omega:np.ndarray, initial_theta:np.ndarray, coupling:float)->np.ndarray:
+    """
+    Computes the activity of the Kuramoto nodes over time for the given connectivity matrix, time step, duration, natural frequencies, initial values, and coupling strength.
+
+    Args:
+        adjacency_matrix (np.ndarray): The adjacency matrix of which the Kuramoto model is plugged in. Should be (N, N)
+        dt (float): The time step of the simulation.
+        T (int): The duration of the simulation.
+        omega (np.ndarray): The natural frequency of the Kuramoto nodes. Should be (N, 1)
+        initial_theta (np.ndarray): The initial values of the Kuramoto nodes. Should be (N, 1)
+        coupling (float): The coupling strength of the Kuramoto model.
+
+    Returns:
+        np.ndarray: The activity of the Kuramoto nodes over time. Will be (N, T)
+        NOTE: Already passed through the sine function!
+    """
+    
+    N = adjacency_matrix.shape[0]
+    n_steps = int(T / dt)
+    theta = np.zeros((N, n_steps))
+    theta[:, 0] = initial_theta
+    
+    for t in range(1, n_steps):
+        dtheta = omega + coupling * np.array([np.sum(adjacency_matrix[i,:] * np.sin(theta[:, t-1] - theta[i, t-1])) for i in prange(N)])
+        theta[:, t] = theta[:, t-1] + dtheta * dt
+    
+    return np.sin(theta)
+
+
+def sar_model(adjacency_matrix:np.ndarray, omega:float) -> np.ndarray:
+    """Computes the spatial autoregressive (SAR) model for the given adjacency matrix and spatial lag parameter (I think!).
+
+    Args:
+        adjacency_matrix (np.ndarray): Self explanatory.
+        omega (float): The spatial lag parameter of the SAR model.
+
+    Returns:
+        np.ndarray: The SAR model matrix (N, N)
+    """
+    N = adjacency_matrix.shape[0]
+    sar = np.linalg.inv(np.eye(N) - omega * adjacency_matrix) @ np.linalg.inv(np.eye(N) - omega * adjacency_matrix.T)
+    return sar
 
 def lesion_simple_nodes(
     complements: Tuple,
