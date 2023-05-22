@@ -4,7 +4,7 @@ import pandas as pd
 from typing import Union, Optional, Tuple, Callable
 import matplotlib.pyplot as plt
 from copy import deepcopy
-
+from neurolib.models.hopf import HopfModel
 
 @njit
 def identity(x: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
@@ -96,6 +96,48 @@ def simulate_dynamical_system_parallel(adjacency_matrix:np.ndarray,
 
     return X
 
+
+@njit
+def simulate_delayed_linear_system(adjacency_matrix: np.ndarray,
+                            delay_matrix: np.ndarray,
+                            input_matrix: np.ndarray,
+                            coupling: float = 1,
+                            dt: float = 0.001,
+                            duration: int = 10,
+                            timeconstant: float = 0.01) -> np.ndarray:
+    """Simulates a linear system of differential equations described by the given parameters.
+
+    Args:
+        adjacency_matrix (np.ndarray): The adjacency matrix (N,N)
+        delay_matrix (np.ndarray): The delay matrix (N,N)
+        input_matrix (np.ndarray): Input of shape (N, T) where N is the number of nodes and T is the number of time steps.
+        coupling (float, optional): The coupling strength between each node (scales the adjacency_matrix). Defaults to 1.
+        dt (float, optional): The time step of the simulation. Defaults to 0.001.
+        duration (int, optional): The duration of the simulation in seconds. Defaults to 10.
+        timeconstant (float, optional): The time constant of the nodes. Defaults to 0.01.
+
+    Returns:
+        np.ndarray: The state of the dynamical system at each time step, of shape (N, T)
+    """
+    N = input_matrix.shape[0]
+    T = np.arange(1, duration/dt + 1) # holds time steps
+    X = np.zeros((N, len(T)+1)) # holds variable x
+
+    dt = dt/timeconstant
+    for timepoint in range(input_matrix.shape[1] - 1):
+        # Compute the delayed input matrix
+        delayed_input_matrix = np.zeros_like(input_matrix)
+        for i in range(N):
+            for j in range(N):
+                if delay_matrix[i, j] > 0:
+                    delayed_input_matrix[i, timepoint - int(delay_matrix[i, j]/dt)] = input_matrix[j, timepoint]
+
+        # Compute the state update
+        X[:, timepoint + 1] = ((1 - dt) * X[:, timepoint]) + dt * (
+            coupling * adjacency_matrix @ X[:, timepoint] + delayed_input_matrix[:, timepoint])
+
+    return X
+
 @njit
 def kuramoto_model(adjacency_matrix:np.ndarray, dt:float, T:int, omega:np.ndarray, initial_theta:np.ndarray, coupling:float)->np.ndarray:
     """
@@ -158,6 +200,37 @@ def lesion_simple_nodes(
                      input_matrix=input,
                      **model_kwargs)
     lesioned_signal = dynamics[index]
+    return lesioned_signal
+
+
+def lesion_hopf(
+    complements: Tuple,
+    adjacency_matrix: np.ndarray,
+    fiber_lengths: np.ndarray,
+    index: int,
+    model_kwargs:dict={},
+) -> np.ndarray:
+
+    model_kwargs
+
+    lesioned_connectivity = deepcopy(adjacency_matrix)
+    lesioned_delay = deepcopy(fiber_lengths)
+    
+    for target in complements:
+        lesioned_connectivity[:, target] = 0.0
+        lesioned_connectivity[target, :] = 0.0
+        lesioned_delay[:, target] = 0.0
+        lesioned_delay[target, :] = 0.0
+        
+    model = HopfModel(Cmat = lesioned_connectivity, Dmat = lesioned_delay)
+    model.params['sigma_ou'] = model_kwargs['noise_strength']
+    model.params['seed'] = model_kwargs['SEED']
+    model.params['duration'] = 1 * 200
+    model.params['K_gl'] = model_kwargs['K_gl']
+    model.params['a'] = model_kwargs['a']
+    model.run()
+    
+    lesioned_signal = model.x[index]
     return lesioned_signal
 
 
