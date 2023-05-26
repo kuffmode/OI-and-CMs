@@ -130,3 +130,6 @@ dmypy.json
 /Archive/
 /netneurotools/
 /test.png
+/Simple-Brain-Plot-main/
+.gitignore
+visualization.asv

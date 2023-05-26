@@ -324,6 +324,45 @@ def check_symmetric(adjacency_matrix: np.ndarray, tol: float = 1e-8) -> bool:
     return np.all(np.abs(adjacency_matrix - adjacency_matrix.T) < tol)
 
 
+def preprocess_for_surface_plot(original_values: pd.DataFrame,
+                                hemispheres: list,
+                                correct_labels: list,) -> pd.DataFrame:
+    """Preprocesses a DataFrame of original values for surface plot visualization.
+
+    This function takes a DataFrame of original values, a list of hemisphere labels,
+    and a list of correct labels, and preprocesses the DataFrame for surface plot
+    visualization. The function generates new labels for the DataFrame based on the
+    hemisphere labels and the original labels, and adds a numbered suffix to repeating
+    labels. The function then creates a new DataFrame with the new labels and the
+    original values, and reorders the rows of the new DataFrame based on the correct
+    labels.
+
+    Args:
+        original_values (pd.DataFrame): A DataFrame of original values.
+        hemispheres (list): A list of hemisphere labels.
+        correct_labels (list): A list of correct labels.
+
+    Returns:
+        pd.DataFrame: A preprocessed DataFrame with new labels and reordered rows.
+    """
+    labels = original_values.index
+    new_label = ['ctx-' + hemispheres[i] + '-' + labels[i] for i in range(len(labels))]
+    word_count = {}
+    lausanne_labels = []
+    for word in new_label:
+        if '_' in word:
+            lausanne_labels.append(word)
+            word_count[word] = int(word.split('_')[-1])
+        else:
+            if word not in word_count:
+                word_count[word] = 1
+                lausanne_labels.append(word + '_1')
+            else:
+                word_count[word] += 1
+                lausanne_labels.append(word + '_' + str(word_count[word]))
+    new_df = pd.DataFrame(data=original_values.values,index=lausanne_labels)
+    return new_df.reindex(index=correct_labels)
+    
 # @njit
 # def simple_dynamical_system(
 #     adjacency_matrix: np.ndarray,
