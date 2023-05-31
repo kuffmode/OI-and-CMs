@@ -133,3 +133,4 @@ dmypy.json
 /Simple-Brain-Plot-main/
 .gitignore
 visualization.asv
+/results/
