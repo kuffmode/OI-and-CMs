@@ -5,6 +5,7 @@ from typing import Union, Optional, Tuple, Callable
 import matplotlib.pyplot as plt
 from copy import deepcopy
 from neurolib.models.hopf import HopfModel
+from scipy.linalg import expm
 
 @njit
 def identity(x: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
@@ -237,6 +238,21 @@ def lesion_hopf(
 def find_density(adjacency_matrix: np.ndarray) -> float:
     return np.where(adjacency_matrix != 0, 1, 0).sum() / adjacency_matrix.shape[0] ** 2
 
+def communicability_centrality(adjacency_matrix: np.ndarray) -> np.ndarray:
+
+    # adopted from "communicability_wei" function of the netneurotools python package. See here:
+    # https://netneurotools.readthedocs.io/en/latest/
+    
+    row_sum = adjacency_matrix.sum(1)
+    neg_sqrt = np.power(row_sum, -0.5)
+    square_sqrt = np.diag(neg_sqrt)
+
+    # normalize input matrix
+    for_expm = square_sqrt @ adjacency_matrix @ square_sqrt
+
+    # calculate matrix exponential of normalized matrix
+    cmc = expm(for_expm)
+    return np.diag(cmc)
 
 def minmax_normalize(
     data: Union[pd.DataFrame, np.ndarray]
@@ -244,9 +260,13 @@ def minmax_normalize(
     return (data - data.min()) / (data.max() - data.min())
 
 
-def log_normalize(adjacency_matrix: np.ndarray):
+def log_normalize(adjacency_matrix: np.ndarray) -> np.ndarray:
     return np.nan_to_num(np.log(adjacency_matrix), neginf=0, posinf=0)
 
+def log_minmax_normalize(adjacency_matrix: np.ndarray) -> np.ndarray:
+    lognorm_adjacency_matrix = minmax_normalize(log_normalize(adjacency_matrix))
+    np.fill_diagonal(lognorm_adjacency_matrix,0.)
+    return np.where(lognorm_adjacency_matrix!=1.,lognorm_adjacency_matrix,0.)
 
 def spectral_normalization(
     target_radius: float, adjacency_matrix: np.ndarray
@@ -362,18 +382,3 @@ def preprocess_for_surface_plot(original_values: pd.DataFrame,
                 lausanne_labels.append(word + '_' + str(word_count[word]))
     new_df = pd.DataFrame(data=original_values.values,index=lausanne_labels)
     return new_df.reindex(index=correct_labels)
-    
-# @njit
-# def simple_dynamical_system(
-#     adjacency_matrix: np.ndarray,
-#     input_matrix: np.ndarray,
-#     function: Callable = identity,
-#     coupling:float = 1.0,
-# ) -> np.ndarray:
-#     X = np.zeros((input_matrix.shape[0], input_matrix.shape[1]))
-#     for timepoint in range(input_matrix.shape[1] - 1):
-#         X[:, timepoint + 1] = function(
-#             (coupling * adjacency_matrix) @ X[:, timepoint] + input_matrix[:, timepoint]
-#         )
-
-#     return X
