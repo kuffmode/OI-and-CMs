@@ -207,26 +207,22 @@ def lesion_simple_nodes(
 def lesion_hopf(
     complements: Tuple,
     adjacency_matrix: np.ndarray,
-    fiber_lengths: np.ndarray,
     index: int,
     model_kwargs:dict={},
 ) -> np.ndarray:
 
-    model_kwargs
 
-    lesioned_connectivity = deepcopy(adjacency_matrix)
-    lesioned_delay = deepcopy(fiber_lengths)
+    lesioned_connectivity = adjacency_matrix.copy()
     
     for target in complements:
         lesioned_connectivity[:, target] = 0.0
         lesioned_connectivity[target, :] = 0.0
-        lesioned_delay[:, target] = 0.0
-        lesioned_delay[target, :] = 0.0
+
         
-    model = HopfModel(Cmat = lesioned_connectivity, Dmat = lesioned_delay)
+    model = HopfModel(Cmat = lesioned_connectivity, Dmat = np.zeros_like(adjacency_matrix))
     model.params['sigma_ou'] = model_kwargs['noise_strength']
     model.params['seed'] = model_kwargs['SEED']
-    model.params['duration'] = 1 * 200
+    model.params['duration'] = 5 * 100
     model.params['K_gl'] = model_kwargs['K_gl']
     model.params['a'] = model_kwargs['a']
     model.run()
