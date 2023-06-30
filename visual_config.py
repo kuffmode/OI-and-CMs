@@ -26,6 +26,7 @@ GRAY = '#b8b8b8'
 from_white = [DEEP_BLUE, BLUE, WHITE, ORANGE, RED]
 white_to_reds = [WHITE, ORANGE, RED]
 white_to_blues = [WHITE, BLUE, DEEP_BLUE]
+teal_to_red = [TEAL, SLOW_GREEN, WHITE, YELLOW, ORANGE, RED]
 
 black_to_reds = [HALF_BLACK, ORANGE, RED]
 black_to_blues = [HALF_BLACK, BLUE, DEEP_BLUE]
@@ -46,7 +47,7 @@ black_red_mono = sns.blend_palette(black_to_reds,as_cmap=True)
 black_blue_mono = sns.blend_palette(black_to_blues,as_cmap=True)
 
 purple_red = sns.blend_palette([PURPLEST, PURPLE, RED])
-
+teal_red = sns.blend_palette(teal_to_red,as_cmap=True)
 
 def set_visual_style():
     sns.set_theme(style='ticks',

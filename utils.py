@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from copy import deepcopy
 from neurolib.models.hopf import HopfModel
 from scipy.linalg import expm
+import networkx as nx
 
 @njit
 def identity(x: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
@@ -249,6 +250,22 @@ def communicability_centrality(adjacency_matrix: np.ndarray) -> np.ndarray:
     # calculate matrix exponential of normalized matrix
     cmc = expm(for_expm)
     return np.diag(cmc)
+
+
+def gt_centrality(complements, graph):
+    lesioned = graph.copy()
+    lesioned.remove_nodes_from(complements)
+    largest_cc = [len(c) for c in sorted(nx.connected_components(lesioned), key=len, reverse=True)]
+    if len(largest_cc) == 0:
+        return 0
+    else:
+        return int(largest_cc[0])
+
+
+def gt_eff(complements, graph):
+    lesioned = graph.copy()
+    lesioned.remove_nodes_from(complements)
+    return float(nx.global_efficiency(lesioned))
 
 def minmax_normalize(
     data: Union[pd.DataFrame, np.ndarray]
