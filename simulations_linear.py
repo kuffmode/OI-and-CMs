@@ -18,7 +18,7 @@ if SPECIES == 'HumanSC':
     connectivity = ut.spectral_normalization(1,consensus_mat['LauConsensus']['Matrices'][2][0])
     
 else:
-    connectivity = ut.spectral_normalization(1,np.loadtxt(f"results/communication_models/{SPECIES}"))
+    connectivity = ut.spectral_normalization(1,np.loadtxt(f"{SPECIES}"))
 N_NODES = len(connectivity)
 
 
