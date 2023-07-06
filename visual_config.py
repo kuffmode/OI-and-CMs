@@ -23,6 +23,8 @@ TEAL = '#44cfcf'
 SLOW_GREEN = '#a1d4ca'
 GRAY = '#b8b8b8'
 
+monochrome = sns.blend_palette([HALF_BLACK, GRAY], as_cmap=True)
+
 from_white = [DEEP_BLUE, BLUE, WHITE, ORANGE, RED]
 white_to_reds = [WHITE, ORANGE, RED]
 white_to_blues = [WHITE, BLUE, DEEP_BLUE]

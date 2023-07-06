@@ -251,6 +251,17 @@ def communicability_centrality(adjacency_matrix: np.ndarray) -> np.ndarray:
     cmc = expm(for_expm)
     return np.diag(cmc)
 
+def parametrized_communicability(adjacency_matrix: np.ndarray,scaling: float = 1) -> np.ndarray:
+    
+    row_sum = adjacency_matrix.sum(1)
+    neg_sqrt = np.power(row_sum, -0.5)
+    square_sqrt = np.diag(neg_sqrt)
+
+    for_expm = square_sqrt @ adjacency_matrix @ square_sqrt
+    for_expm = scaling * for_expm
+    cmc = expm(for_expm)
+    cmc[np.diag_indices_from(cmc)] = 0
+    return cmc
 
 def gt_centrality(complements, graph):
     lesioned = graph.copy()
