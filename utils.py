@@ -7,7 +7,8 @@ from copy import deepcopy
 from neurolib.models.hopf import HopfModel
 from scipy.linalg import expm
 import networkx as nx
-
+from scipy.stats import pearsonr, spearmanr
+ 
 @njit
 def identity(x: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
     """The identity function. It's for the linear case and I literally stole it from Fabrizio:
