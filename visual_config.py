@@ -35,6 +35,8 @@ black_to_blues = [HALF_BLACK, BLUE, DEEP_BLUE]
 from_black = [DEEP_BLUE, BLUE, HALF_BLACK, ORANGE, RED]
 purples = [PURPLE, WHITE, NIGHT_BLUE]
 
+discretes = [NIGHT_BLUE, YELLOW, PURPLE, TEAL, ORANGE, BLUE]
+
 mono_black_gray_red = sns.blend_palette(black_to_gray_to_reds, as_cmap=True)
 diverge_from_white = sns.blend_palette(from_white, as_cmap=True)
 purples_diverge_from_white = sns.blend_palette(purples, as_cmap=True)
@@ -50,7 +52,7 @@ black_blue_mono = sns.blend_palette(black_to_blues, as_cmap=True)
 purple_red = sns.blend_palette([PURPLEST, PURPLE, RED])
 teal_red = sns.blend_palette(teal_to_red, as_cmap=True)
 monochrome = sns.blend_palette([HALF_BLACK, GRAY], as_cmap=True)
-
+discrete_map = sns.blend_palette(discretes, as_cmap=True)
 
 def set_visual_style():
     sns.set_theme(

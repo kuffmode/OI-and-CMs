@@ -26,7 +26,7 @@ connectivity = ut.spectral_normalization(
 fiber_lengths = consensus_mat["LauConsensus"]["Matrices"][0][1]
 
 NOISE_STRENGTH = 0.05
-TAU = 0.02
+
 
 N_TRIALS = 1
 N_CORES = -1

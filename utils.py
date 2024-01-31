@@ -100,77 +100,6 @@ def simulate_dynamical_system_parallel(adjacency_matrix:np.ndarray,
     return X
 
 
-@njit
-def simulate_delayed_linear_system(adjacency_matrix: np.ndarray,
-                            delay_matrix: np.ndarray,
-                            input_matrix: np.ndarray,
-                            coupling: float = 1,
-                            dt: float = 0.001,
-                            duration: int = 10,
-                            timeconstant: float = 0.01) -> np.ndarray:
-    """Simulates a linear system of differential equations described by the given parameters.
-
-    Args:
-        adjacency_matrix (np.ndarray): The adjacency matrix (N,N)
-        delay_matrix (np.ndarray): The delay matrix (N,N)
-        input_matrix (np.ndarray): Input of shape (N, T) where N is the number of nodes and T is the number of time steps.
-        coupling (float, optional): The coupling strength between each node (scales the adjacency_matrix). Defaults to 1.
-        dt (float, optional): The time step of the simulation. Defaults to 0.001.
-        duration (int, optional): The duration of the simulation in seconds. Defaults to 10.
-        timeconstant (float, optional): The time constant of the nodes. Defaults to 0.01.
-
-    Returns:
-        np.ndarray: The state of the dynamical system at each time step, of shape (N, T)
-    """
-    N = input_matrix.shape[0]
-    T = np.arange(1, duration/dt + 1) # holds time steps
-    X = np.zeros((N, len(T)+1)) # holds variable x
-
-    dt = dt/timeconstant
-    for timepoint in range(input_matrix.shape[1] - 1):
-        # Compute the delayed input matrix
-        delayed_input_matrix = np.zeros_like(input_matrix)
-        for i in range(N):
-            for j in range(N):
-                if delay_matrix[i, j] > 0:
-                    delayed_input_matrix[i, timepoint - int(delay_matrix[i, j]/dt)] = input_matrix[j, timepoint]
-
-        # Compute the state update
-        X[:, timepoint + 1] = ((1 - dt) * X[:, timepoint]) + dt * (
-            coupling * adjacency_matrix @ X[:, timepoint] + delayed_input_matrix[:, timepoint])
-
-    return X
-
-@njit
-def kuramoto_model(adjacency_matrix:np.ndarray, dt:float, T:int, omega:np.ndarray, initial_theta:np.ndarray, coupling:float)->np.ndarray:
-    """
-    Computes the activity of the Kuramoto nodes over time for the given connectivity matrix, time step, duration, natural frequencies, initial values, and coupling strength.
-
-    Args:
-        adjacency_matrix (np.ndarray): The adjacency matrix of which the Kuramoto model is plugged in. Should be (N, N)
-        dt (float): The time step of the simulation.
-        T (int): The duration of the simulation.
-        omega (np.ndarray): The natural frequency of the Kuramoto nodes. Should be (N, 1)
-        initial_theta (np.ndarray): The initial values of the Kuramoto nodes. Should be (N, 1)
-        coupling (float): The coupling strength of the Kuramoto model.
-
-    Returns:
-        np.ndarray: The activity of the Kuramoto nodes over time. Will be (N, T)
-        NOTE: Already passed through the sine function!
-    """
-    
-    N = adjacency_matrix.shape[0]
-    n_steps = int(T / dt)
-    theta = np.zeros((N, n_steps))
-    theta[:, 0] = initial_theta
-    
-    for t in range(1, n_steps):
-        dtheta = omega + coupling * np.array([np.sum(adjacency_matrix[i,:] * np.sin(theta[:, t-1] - theta[i, t-1])) for i in prange(N)])
-        theta[:, t] = theta[:, t-1] + dtheta * dt
-    
-    return np.sin(theta)
-
-
 def sar_model(adjacency_matrix:np.ndarray, omega:float) -> np.ndarray:
     """Computes the spatial autoregressive (SAR) model for the given adjacency matrix and spatial lag parameter (I think!).
 
@@ -252,7 +181,7 @@ def communicability_centrality(adjacency_matrix: np.ndarray) -> np.ndarray:
     cmc = expm(for_expm)
     return np.diag(cmc)
 
-def parametrized_communicability(adjacency_matrix: np.ndarray,scaling: float = 1) -> np.ndarray:
+def parametrized_communicability(adjacency_matrix: np.ndarray, scaling: float = 0.5) -> np.ndarray:
     
     row_sum = adjacency_matrix.sum(1)
     neg_sqrt = np.power(row_sum, -0.5)
@@ -263,6 +192,38 @@ def parametrized_communicability(adjacency_matrix: np.ndarray,scaling: float = 1
     cmc = expm(for_expm)
     cmc[np.diag_indices_from(cmc)] = 0
     return cmc
+
+def linear_attenuation_model(adjacency_matrix: np.ndarray, normalize:bool = True, alpha: float = 0.5) -> np.ndarray:
+    """This is the dynamical model behind Katz centrality. It's very simiar to communicability but instead of an exponential discount on the longer walks, it's linear.
+    The discount factor alpha should be between 0 and the spectral radius of the adjacancy matrix. See here for more information:
+    https://arxiv.org/abs/2307.02449
+
+    Args:
+        adjacency_matrix (np.ndarray): weighted, directed, undirected matrix of shape (N, N). I haven't implemented it but for binary matrices, just do the last part and skip the
+        normalization step. 
+        **
+        important note by Gorka about the directed graphs: 
+        be careful because these measures expect that A_{ij} = 1 if j --> i,
+        which is the opposite of the convention in graph theory that, A_{ij} = 1 if i --> j.
+        So … if you are defining your adjacency matrices following the graph convention by default, make sure you feed the function with the transpose, A^T
+        **
+        alpha (float): attenuation factor of the influence. Default is 0.5 assuming your adjacency matrix is normalized to a spectral radius of 1.
+
+    Returns:
+        np.ndarray: A matrix of shape (N, N) that describes the influence of each node on every other node given walks of all lengths.
+    """
+    if normalize:
+        # normalize input matrix (took this part from wei_communicability function of netneurotools)
+        row_sum = adjacency_matrix.sum(1)
+        neg_sqrt = np.power(row_sum, -0.5)
+        square_sqrt = np.diag(neg_sqrt)
+        adjacency_matrix = square_sqrt @ adjacency_matrix @ square_sqrt
+        
+    # calculate linear attenuation matrix from the normalized adjacency matrix
+    N = len(adjacency_matrix)
+    lam = np.linalg.inv(np.eye(N)-(alpha*adjacency_matrix))
+    return lam
+
 
 def gt_centrality(complements, graph):
     lesioned = graph.copy()
@@ -407,3 +368,61 @@ def preprocess_for_surface_plot(original_values: pd.DataFrame,
                 lausanne_labels.append(word + '_' + str(word_count[word]))
     new_df = pd.DataFrame(data=original_values.values,index=lausanne_labels)
     return new_df.reindex(index=correct_labels)
+
+
+def sort_by_fc_module(adjacency_matrix, fc_modules):
+    unique_modules = list(set(fc_modules))  # Extract the unique strings
+    mapping = {string: i for i, string in enumerate(unique_modules, start=1)}
+
+    # Convert your list of strings to a list of integers
+    fc_modules_integers = [mapping[string] for string in fc_modules]
+    sorted_nodes = sorted(zip(fc_modules_integers, range(len(fc_modules_integers))))
+    sorted_labels, sorted_indices = zip(*sorted_nodes)
+    sorted_strings = [fc_modules[i] for i in sorted_indices]
+    sorted_strings.reverse()
+
+    sorted_adjacency_matrix = adjacency_matrix[np.ix_(sorted_indices, sorted_indices)]
+    sorted_indices = np.flip(np.array(sorted_labels).reshape(-1, 1))
+    community_changes = [i for i in range(1, len(sorted_labels)) if sorted_labels[i] != sorted_labels[i-1]]
+    community_changes.reverse()
+    return sorted_adjacency_matrix, sorted_indices, sorted_strings, community_changes
+
+
+def community_extractor(target_community, sorted_labels, sorted_adjacency_matrix):
+
+    # Find the indices where the community label matches the target_community
+    target_indices = [index for index, label in enumerate(sorted_labels) if label == target_community]
+
+    # Create a subnetwork for the target community
+    community_subnetwork = sorted_adjacency_matrix[np.ix_(target_indices, target_indices)]
+    return community_subnetwork
+
+
+def plot_community_colorbar(fig, ax_heatmap, community_data, cmap):
+    # Get the position of the heatmap axis
+    pos = ax_heatmap.get_position()
+    # Define the width of the color bar
+    colorbar_width = pos.width * 0.08
+    # Create a new axis for the community color bar to the right of the heatmap
+    ax_colorbar = fig.add_axes([(pos.x1)-0.017 + colorbar_width, pos.y0, colorbar_width, pos.height])
+    # Plot the community data as a vertical color bar
+    ax_colorbar.imshow(community_data, aspect='auto', cmap=cmap, origin='lower')
+    # Hide the axis ticks
+    ax_colorbar.set_xticks([])
+    ax_colorbar.set_yticks([])
+    
+def discrete_cmap(N, base_cmap=None):
+    """
+    This directly came from: 
+    https://gist.github.com/jakevdp/91077b0cae40f8f8244a
+    Create an N-bin discrete colormap from the specified input map
+    """
+
+    # Note that if base_cmap is a string or None, you can simply do
+    #    return plt.cm.get_cmap(base_cmap, N)
+    # The following works for string, None, or a colormap instance:
+
+    base = plt.cm.get_cmap(base_cmap)
+    color_list = base(np.linspace(0, 1, N))
+    cmap_name = base.name + str(N)
+    return base.from_list(cmap_name, color_list, N)
