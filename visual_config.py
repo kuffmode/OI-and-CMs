@@ -35,7 +35,17 @@ black_to_blues = [HALF_BLACK, BLUE, DEEP_BLUE]
 from_black = [DEEP_BLUE, BLUE, HALF_BLACK, ORANGE, RED]
 purples = [PURPLE, WHITE, NIGHT_BLUE]
 
-discretes = [NIGHT_BLUE, YELLOW, PURPLE, TEAL, ORANGE, BLUE]
+discretes = [
+    DEEP_BLUE,
+    BLUE,
+    WHITE,
+    HALF_BLACK,
+    "#F05A6E",  # Adjusted Orange
+    "#A90051",  # Adjusted Red
+    "#B3698D",  # Adjusted Purple
+    YELLOW,
+    "#4D96FF"   # Sky Blue
+]
 
 mono_black_gray_red = sns.blend_palette(black_to_gray_to_reds, as_cmap=True)
 diverge_from_white = sns.blend_palette(from_white, as_cmap=True)

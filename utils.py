@@ -8,7 +8,8 @@ from neurolib.models.hopf import HopfModel
 from scipy.linalg import expm
 import networkx as nx
 from scipy.stats import pearsonr, spearmanr
- 
+import seaborn as sns
+
 @njit
 def identity(x: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
     """The identity function. It's for the linear case and I literally stole it from Fabrizio:
@@ -426,3 +427,25 @@ def discrete_cmap(N, base_cmap=None):
     color_list = base(np.linspace(0, 1, N))
     cmap_name = base.name + str(N)
     return base.from_list(cmap_name, color_list, N)
+
+
+def community_plotter(adj_matrix, 
+                      module_labels, 
+                      fig, ax, 
+                      heatmap_kwargs, 
+                      module_colors,
+                      line_width=0.5,
+                      line_color= "#232324"):
+
+    sorted_adjacency_matrix, sorted_indices, _, borders = sort_by_fc_module(adj_matrix, module_labels)
+    sns.heatmap(sorted_adjacency_matrix, ax=ax, **heatmap_kwargs)
+    if module_colors is not None:
+        fig.tight_layout()
+        plot_community_colorbar(fig,ax,sorted_indices,module_colors)
+
+    for border in borders:
+
+        ax.axhline(y=border, color=line_color, lw=line_width)
+        ax.axvline(x=border, color=line_color, lw=line_width)
+
+    return ax
