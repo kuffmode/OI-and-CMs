@@ -384,20 +384,28 @@ def sort_by_fc_module(adjacency_matrix, fc_modules):
 
     sorted_adjacency_matrix = adjacency_matrix[np.ix_(sorted_indices, sorted_indices)]
     sorted_indices = np.flip(np.array(sorted_labels).reshape(-1, 1))
-    community_changes = [i for i in range(1, len(sorted_labels)) if sorted_labels[i] != sorted_labels[i-1]]
-    community_changes.reverse()
-    return sorted_adjacency_matrix, sorted_indices, sorted_strings, community_changes
+    borders = [i for i in range(1, len(sorted_labels)) if sorted_labels[i] != sorted_labels[i-1]]
+    return sorted_adjacency_matrix, sorted_indices, sorted_strings, borders
 
 
-def community_extractor(target_community, sorted_labels, sorted_adjacency_matrix):
+# def community_extractor(target_community, sorted_indices, sorted_adjacency_matrix):
 
-    # Find the indices where the community label matches the target_community
-    target_indices = [index for index, label in enumerate(sorted_labels) if label == target_community]
+#     # Find the indices where the community label matches the target_community
+#     target_indices = [index for index, label in enumerate(sorted_indices) if label == target_community]
 
-    # Create a subnetwork for the target community
-    community_subnetwork = sorted_adjacency_matrix[np.ix_(target_indices, target_indices)]
-    return community_subnetwork
+#     # Create a subnetwork for the target community
+#     community_subnetwork = sorted_adjacency_matrix[np.ix_(target_indices, target_indices)]
+#     return community_subnetwork
 
+def in_out_community_influence(sorted_influence, one_community_borders):
+    inside_community = np.arange(len(sorted_influence)) >= one_community_borders[0]
+    inside_community &= np.arange(len(sorted_influence)) < one_community_borders[1]
+
+    outside_community = ~inside_community
+
+    inside_to_outside = sorted_influence[outside_community][:, inside_community]
+    outside_to_inside = sorted_influence[inside_community][:, outside_community]
+    return inside_to_outside, outside_to_inside
 
 def plot_community_colorbar(fig, ax_heatmap, community_data, cmap):
     # Get the position of the heatmap axis
