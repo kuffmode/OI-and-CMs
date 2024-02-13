@@ -3,6 +3,7 @@ from numba import njit, prange
 import pandas as pd
 from typing import Union, Optional, Tuple, Callable
 import matplotlib.pyplot as plt
+import matplotlib
 from copy import deepcopy
 from neurolib.models.hopf import HopfModel
 from scipy.linalg import expm
@@ -102,7 +103,7 @@ def simulate_dynamical_system_parallel(adjacency_matrix:np.ndarray,
 
 
 def sar_model(adjacency_matrix:np.ndarray, omega:float) -> np.ndarray:
-    """Computes the spatial autoregressive (SAR) model for the given adjacency matrix and spatial lag parameter (I think!).
+    """Computes the spatial autoregressive (SAR) model for the given adjacency matrix and spatial lag parameter.
 
     Args:
         adjacency_matrix (np.ndarray): Self explanatory.
@@ -121,8 +122,23 @@ def lesion_simple_nodes(
     index: int,
     input: np.ndarray,
     model: Callable = simulate_dynamical_system,
-    model_kwargs:dict={},
+    model_kwargs:dict=None,
 ) -> np.ndarray:
+    """
+    Lesions the given nodes and simulates the dynamics of the system given the lesion.
+
+    Args:
+        complements (Tuple): Which nodes to lesion, comes from MSA.
+        adjacency_matrix (np.ndarray): Adjacency matrix of the network.
+        index (int): Which node to track, also comes from MSA.
+        input (np.ndarray): Input matrix of shape (N, T) where N is the number of nodes and T is the number of time steps.
+                            This is basically the gaussian noise but precomputed for two reasons: 1. replicability, and 2. efficiency.
+        model (Callable, optional): Model of local dynamics. Defaults to simulate_dynamical_system.
+        model_kwargs (dict, optional): kwargs for the model. Defaults to None.
+
+    Returns:
+        np.ndarray: Resulted activity of the target node given the lesion. Shape is (T,)
+    """    
 
     lesioned_connectivity = deepcopy(adjacency_matrix)
     for target in complements:
@@ -142,7 +158,18 @@ def lesion_hopf(
     index: int,
     model_kwargs:dict={},
 ) -> np.ndarray:
+    """
+    Lesions the Hopf model. It's really close to the `lesion_simple_nodes` function but I wanted to keep it separate because Hopf needed some extra stuff and I was lazy to do nice coding!
 
+    Args:
+        complements (Tuple): Which nodes to lesion, comes from MSA.
+        adjacency_matrix (np.ndarray): Adjacency matrix of the network.
+        index (int): Which node to track, also comes from MSA.
+        model_kwargs (dict, optional): kwargs for the model. Defaults to None.
+
+    Returns:
+        np.ndarray: Resulted activity of the target node (only the x state) given the lesion. Shape is (T,)
+    """
 
     lesioned_connectivity = adjacency_matrix.copy()
     
@@ -164,10 +191,25 @@ def lesion_hopf(
 
 
 def find_density(adjacency_matrix: np.ndarray) -> float:
+    """Finds the density of the given adjacency matrix. It's the ratio of the number of edges to the number of possible edges.
+
+    Args:
+        adjacency_matrix (np.ndarray): The adjacency matrix of the network.
+
+    Returns:
+        float: The density of the network.
+    """    
     return np.where(adjacency_matrix != 0, 1, 0).sum() / adjacency_matrix.shape[0] ** 2
 
 def communicability_centrality(adjacency_matrix: np.ndarray) -> np.ndarray:
+    """It's a measure of the influence of a node on all other nodes in the network. Didn't implement the binary version of it so this works only for the weighted networks at the moment.
 
+    Args:
+        adjacency_matrix (np.ndarray): Weighted, directed, undirected matrix of shape (N, N).
+
+    Returns:
+        np.ndarray: Communicability centrality of each node in the network. Shape is (N,)
+    """
     # adopted from "communicability_wei" function of the netneurotools python package. See here:
     # https://netneurotools.readthedocs.io/en/latest/
     
@@ -182,32 +224,57 @@ def communicability_centrality(adjacency_matrix: np.ndarray) -> np.ndarray:
     cmc = expm(for_expm)
     return np.diag(cmc)
 
-def parametrized_communicability(adjacency_matrix: np.ndarray, scaling: float = 0.5) -> np.ndarray:
-    
-    row_sum = adjacency_matrix.sum(1)
-    neg_sqrt = np.power(row_sum, -0.5)
-    square_sqrt = np.diag(neg_sqrt)
+def parametrized_communicability(adjacency_matrix: np.ndarray, normalize:bool = True, scaling: float = 0.5) -> np.ndarray:
+    """Also known as scaled communicability. It computes communicability but also scales the decay rate by a factor of `scaling`.
+    The smaller the decay rate, the quicker it assumes the walks to be subsiding. The scaling factor should be between 0 and the spectral radius of the adjacancy matrix.
+    See here for more information:
+    https://arxiv.org/abs/2307.02449
+    Works for weighted and binary networks but make sure not to normalize the binary networks.
 
-    for_expm = square_sqrt @ adjacency_matrix @ square_sqrt
-    for_expm = scaling * for_expm
-    cmc = expm(for_expm)
-    cmc[np.diag_indices_from(cmc)] = 0
+    Args:
+        adjacency_matrix (np.ndarray): Adjacency matrix of the network.
+        **
+        important note by Gorka Zamora Lopez about the directed graphs: 
+            be careful because these measures expect that A_{ij} = 1 if j --> i,
+            which is the opposite of the convention in graph theory that, A_{ij} = 1 if i --> j.
+            So … if you are defining your adjacency matrices following the graph convention by default, make sure you feed the function with the transpose, A^T
+        **
+        normalize (bool, optional): Make this false for binary networks. Defaults to True.
+        scaling (float, optional): This modulates the discount factor. Defaults to 0.5. Assuming your adjacency matrix is normalized to a spectral radius of 1.
+
+    Returns:
+        np.ndarray: scaled communicability matrix of shape (N, N)
+    """   
+    # adopted from "communicability_wei" function of the netneurotools python package. See here:
+    # https://netneurotools.readthedocs.io/en/latest/
+    
+    if normalize:
+        row_sum = adjacency_matrix.sum(1)
+        neg_sqrt = np.power(row_sum, -0.5)
+        square_sqrt = np.diag(neg_sqrt)
+        adjacency_matrix = square_sqrt @ adjacency_matrix @ square_sqrt
+    
+    adjacency_matrix *= scaling
+    cmc = expm(adjacency_matrix)
+    cmc[np.diag_indices_from(cmc)] = 0.
     return cmc
 
 def linear_attenuation_model(adjacency_matrix: np.ndarray, normalize:bool = True, alpha: float = 0.5) -> np.ndarray:
     """This is the dynamical model behind Katz centrality. It's very simiar to communicability but instead of an exponential discount on the longer walks, it's linear.
     The discount factor alpha should be between 0 and the spectral radius of the adjacancy matrix. See here for more information:
     https://arxiv.org/abs/2307.02449
+    Works for weighted and binary networks but make sure not to normalize the binary networks.
 
     Args:
         adjacency_matrix (np.ndarray): weighted, directed, undirected matrix of shape (N, N). I haven't implemented it but for binary matrices, just do the last part and skip the
         normalization step. 
         **
-        important note by Gorka about the directed graphs: 
-        be careful because these measures expect that A_{ij} = 1 if j --> i,
-        which is the opposite of the convention in graph theory that, A_{ij} = 1 if i --> j.
-        So … if you are defining your adjacency matrices following the graph convention by default, make sure you feed the function with the transpose, A^T
+        important note by Gorka Zamora Lopez about the directed graphs: 
+            be careful because these measures expect that A_{ij} = 1 if j --> i,
+            which is the opposite of the convention in graph theory that, A_{ij} = 1 if i --> j.
+            So … if you are defining your adjacency matrices following the graph convention by default, make sure you feed the function with the transpose, A^T
         **
+        normalize (bool, optional): Make this false for binary networks. Defaults to True.
         alpha (float): attenuation factor of the influence. Default is 0.5 assuming your adjacency matrix is normalized to a spectral radius of 1.
 
     Returns:
@@ -226,31 +293,40 @@ def linear_attenuation_model(adjacency_matrix: np.ndarray, normalize:bool = True
     return lam
 
 
-def gt_centrality(complements, graph):
-    lesioned = graph.copy()
-    lesioned.remove_nodes_from(complements)
-    largest_cc = [len(c) for c in sorted(nx.connected_components(lesioned), key=len, reverse=True)]
-    if len(largest_cc) == 0:
-        return 0
-    else:
-        return int(largest_cc[0])
-
-
-def gt_eff(complements, graph):
-    lesioned = graph.copy()
-    lesioned.remove_nodes_from(complements)
-    return float(nx.global_efficiency(lesioned))
-
 def minmax_normalize(
     data: Union[pd.DataFrame, np.ndarray]
 ) -> Union[pd.DataFrame, np.ndarray]:
+    """Normalizes data between 0 and 1.
+
+    Args:
+        data (Union[pd.DataFrame, np.ndarray]): Data to be normalized. Can be a DataFrame or an np array but in both cases it should be at most 2D.
+
+    Returns:
+        Union[pd.DataFrame, np.ndarray]: Normalized data with the same shape as the input.
+    """    
     return (data - data.min()) / (data.max() - data.min())
 
 
 def log_normalize(adjacency_matrix: np.ndarray) -> np.ndarray:
+    """Returns the logarithm of the data (adjacency_matrix) but also takes care of the infinit values.
+
+    Args:
+        adjacency_matrix (np.ndarray): Adjacency matrix of the network. Technically can be any matrix but I did it for the adjacency matrices.
+
+    Returns:
+        np.ndarray: Normalized data with the same shape as the input.
+    """    
     return np.nan_to_num(np.log(adjacency_matrix), neginf=0, posinf=0)
 
 def log_minmax_normalize(adjacency_matrix: np.ndarray) -> np.ndarray:
+    """It first takes the logarithm of the data and then normalizes it between 0 and 1. It also takes care of the infinit values and those nasty things.
+
+    Args:
+        adjacency_matrix (np.ndarray): Adjacency matrix of the network. Technically can be any matrix but I did it for the adjacency matrices.
+
+    Returns:
+        np.ndarray: Normalized data with the same shape as the input.
+    """    
     lognorm_adjacency_matrix = minmax_normalize(log_normalize(adjacency_matrix))
     np.fill_diagonal(lognorm_adjacency_matrix,0.)
     return np.where(lognorm_adjacency_matrix!=1.,lognorm_adjacency_matrix,0.)
@@ -258,11 +334,29 @@ def log_minmax_normalize(adjacency_matrix: np.ndarray) -> np.ndarray:
 def spectral_normalization(
     target_radius: float, adjacency_matrix: np.ndarray
 ) -> np.ndarray:
+    """Normalizes the adjacency matrix to have a spectral radius of the target_radius. Good to keep the system stable.
+
+    Args:
+        target_radius (float): A value below 1.0. It's the spectral radius that you want to achieve. But use 1.0 if you're planning to change the global coupling strength somewhere.
+        adjacency_matrix (np.ndarray): Adjacency matrix of the network.
+
+    Returns:
+        np.ndarray: Normalized adjacency matrix with the same shape as the input.
+    """    
     spectral_radius = np.max(np.abs(np.linalg.eigvals(adjacency_matrix)))
     return adjacency_matrix * target_radius / spectral_radius
 
 
 def threshold(lower_threshold: int, adjacency_matrix: np.ndarray) -> np.ndarray:
+    """thresholds the adjacency matrix. It's a simple percentile based thresholding (doing lower < 0 < 100-lower) so the graph might end up being disconnected.
+
+    Args:
+        lower_threshold (int): the percentage of the values to be kept. Like 5 means keep the top 5% of the values from both sides of the distribution and remove the middle 95%.
+        adjacency_matrix (np.ndarray): The adjacency matrix of the network.
+
+    Returns:
+        np.ndarray: thresholded adjacency matrix with the same shape as the input.
+    """    
     adjacency_matrix = pd.DataFrame(adjacency_matrix)
     adjacency_matrix = adjacency_matrix.fillna(0)
 
@@ -279,6 +373,18 @@ def event_maker(
     probability: float = 1,
     rng: np.random.Generator = np.random.default_rng(seed=2023),
 ) -> np.ndarray:
+    """makes some random events. It's a simple function that generates a matrix of shape (n_units, timesteps) where each row is a node and each column is a time step.
+        It then flips some of the steps to 1 based on the probability. If the probability is 1, it just puts a 1 at a random time step for each node.
+
+    Args:
+        n_units (int): number of nodes in the network.
+        timesteps (int): number of time steps.
+        probability (float, optional): probability of having an event for each node. Defaults to 1.
+        rng (np.random.Generator, optional): random generator. Defaults to np.random.default_rng(seed=2023).
+
+    Returns:
+        np.ndarray: events matrix of shape (n_units, timesteps)
+    """    
 
     if probability < 1:
         input = rng.choice(
@@ -303,6 +409,22 @@ def brain_plotter(
     cmap: any = "viridis",
     scatter_kwargs=Optional[None],
 ) -> plt.Axes:
+    """plots the 3D scatter plot of the brain. It's a simple function that takes the data, the coordinates, and the axis and plots the brain.
+    It's a modified version the netneurotools python package but you can give it the axis to plot in. See here: 
+    https://netneurotools.readthedocs.io/en/latest/
+
+    Args:
+        data (np.ndarray): the values that need to be mapped to the nodes. Shape is (N,)
+        coordinates (np.ndarray): 3D coordinates fo each node. Shape is (N, 3)
+        axis (plt.Axes): Which axis to plot in. This means you have to already have a figure and an axis to plot in.
+        view (Tuple[int, int], optional): Which view to look at. Defaults to (90, 180).
+        size (int, optional): Size of the nodes. Defaults to 20.
+        cmap (any, optional): Color map. Defaults to "viridis" which I don't like but you do you.
+        scatter_kwargs (_type_, optional): kwargs for the dots. Defaults to Optional[None].
+
+    Returns:
+        plt.Axes: matplotlib axis with the brain plotted.
+    """    
     scatter_kwargs = scatter_kwargs if scatter_kwargs else {}
 
     axis.scatter(
@@ -322,12 +444,32 @@ def brain_plotter(
 
 
 def make_influence_ratio(difference_matrix: pd.DataFrame, axis: int = 0) -> pd.Series:
+    """
+    Calculates the influence ratio for each element in a DataFrame along a specified axis. Like the differece between communicability and LAM or something like that.
+
+    Args:
+        difference_matrix (pd.DataFrame): A DataFrame containing numerical differences between entities. Simply matrix1 - matrix2.
+        axis (int, optional): Which axis, translates to incoming vs outgoing in directed networks. Defaults to 0.
+
+    Returns:
+        pd.Series: influence ratio for each element along the specified axis.
+    """    
     positives = (difference_matrix > 0).sum(axis) / len(difference_matrix)
     negatives = (difference_matrix < 0).sum(axis) / len(difference_matrix)
     return positives - negatives
 
 
 def check_symmetric(adjacency_matrix: np.ndarray, tol: float = 1e-8) -> bool:
+    """Checks whether the adjacency matrix, as a square NumPy array is symmetric within a given tolerance.
+
+
+    Args:
+        adjacency_matrix (np.ndarray): the adjacency matrix of the network.
+        tol (float, optional): the error tolerance. Defaults to 1e-8.
+
+    Returns:
+        bool: A boolean value indicating whether the adjacency matrix is symmetric.
+    """    
     return np.all(np.abs(adjacency_matrix - adjacency_matrix.T) < tol)
 
 
@@ -371,7 +513,17 @@ def preprocess_for_surface_plot(original_values: pd.DataFrame,
     return new_df.reindex(index=correct_labels)
 
 
-def sort_by_fc_module(adjacency_matrix, fc_modules):
+def sort_by_fc_module(adjacency_matrix:np.ndarray, fc_modules: list) -> Tuple[np.ndarray, np.ndarray, list, list]:
+    """Sorts the adjacency matrix and based on the FC modules. It also returns the sorted indices, strings, and the borders of the modules.
+
+
+    Args:
+        adjacency_matrix (np.ndarray): adjacency matrix of the network.
+        fc_modules (list): list of the FC modules assigned to the nodes. The shape of the list should be (N,)
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray, list, list]: sorted adjacency matrix, sorted indices, sorted strings, and the borders of the modules.
+    """ 
     unique_modules = list(set(fc_modules))  # Extract the unique strings
     mapping = {string: i for i, string in enumerate(unique_modules, start=1)}
 
@@ -385,19 +537,29 @@ def sort_by_fc_module(adjacency_matrix, fc_modules):
     sorted_adjacency_matrix = adjacency_matrix[np.ix_(sorted_indices, sorted_indices)]
     sorted_indices = np.flip(np.array(sorted_labels).reshape(-1, 1))
     borders = [i for i in range(1, len(sorted_labels)) if sorted_labels[i] != sorted_labels[i-1]]
+    borders.insert(len(borders), len(sorted_adjacency_matrix))
+    borders.insert(0, 0)
     return sorted_adjacency_matrix, sorted_indices, sorted_strings, borders
 
 
-# def community_extractor(target_community, sorted_indices, sorted_adjacency_matrix):
+def in_out_community_influence(sorted_influence:np.ndarray, one_community_borders:Tuple[int, int]) -> Tuple[np.ndarray, np.ndarray]:
+    """splits the influence matrix into inside and outside community influences. 
+    Inside ones are within module influences so shape is (N, N) and outside ones are between module influences so shape is (M, N) with M is the length of the original matrix.
 
-#     # Find the indices where the community label matches the target_community
-#     target_indices = [index for index, label in enumerate(sorted_indices) if label == target_community]
+    Args:
+        sorted_influence (np.ndarray): already sorted by FC communities influence matrix, or any other matrix but this is how I used it.
+        one_community_borders (Tuple[int, int]): borders of a single community. It's a tuple of two integers. So you have to loop through communities and call this function for each.
+    Example:
+    for index in range(1,10):
+        target_community = sorted_ci[borders[index-1]:borders[index],borders[index-1]:borders[index]]
+        within_community_influence[index-1] = target_community.mean()
 
-#     # Create a subnetwork for the target community
-#     community_subnetwork = sorted_adjacency_matrix[np.ix_(target_indices, target_indices)]
-#     return community_subnetwork
+        between_community_data,_ = ut.in_out_community_influence(sorted_ci, (borders[index-1],borders[index]))
+        between_community_influence[index-1] = between_community_data.mean()
 
-def in_out_community_influence(sorted_influence, one_community_borders):
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: matrices of influence within the module with shape (N, N) and from/to module (M, N).
+    """    
     inside_community = np.arange(len(sorted_influence)) >= one_community_borders[0]
     inside_community &= np.arange(len(sorted_influence)) < one_community_borders[1]
 
@@ -407,7 +569,15 @@ def in_out_community_influence(sorted_influence, one_community_borders):
     outside_to_inside = sorted_influence[inside_community][:, outside_community]
     return inside_to_outside, outside_to_inside
 
-def plot_community_colorbar(fig, ax_heatmap, community_data, cmap):
+def plot_community_colorbar(fig:plt.Figure, ax_heatmap:plt.Axes, community_data:list, cmap:matplotlib.colors.Colormap)->None:
+    """Plots the community color bar to the right of the heatmap. Trust me this took me a while to figure out.
+
+    Args:
+        fig (plt.Fig): which figure to plot in.
+        ax_heatmap (plt.axis): what axis to plot the color bar next to.
+        community_data (list): the community labels of the nodes. Shape is (N,)
+        cmap (matplotlib.colors.Colormap): which color map to use. Shape is (N,) but remember the number of colors should be the same as the number of communities. Or just use 'Set3' or something from seaborn.
+    """    
     # Get the position of the heatmap axis
     pos = ax_heatmap.get_position()
     # Define the width of the color bar
@@ -420,7 +590,7 @@ def plot_community_colorbar(fig, ax_heatmap, community_data, cmap):
     ax_colorbar.set_xticks([])
     ax_colorbar.set_yticks([])
     
-def discrete_cmap(N, base_cmap=None):
+def discrete_cmap(N:int, base_cmap:matplotlib.colors.Colormap=None)->matplotlib.colors.Colormap:
     """
     This directly came from: 
     https://gist.github.com/jakevdp/91077b0cae40f8f8244a
@@ -437,13 +607,32 @@ def discrete_cmap(N, base_cmap=None):
     return base.from_list(cmap_name, color_list, N)
 
 
-def community_plotter(adj_matrix, 
-                      module_labels, 
-                      fig, ax, 
-                      heatmap_kwargs, 
-                      module_colors,
-                      line_width=0.5,
-                      line_color= "#232324"):
+def community_plotter(
+    adj_matrix:np.ndarray,
+    module_labels: list,
+    fig:plt.Figure,
+    ax:plt.Axes,
+    heatmap_kwargs:dict,
+    module_colors:Optional[Union[list, np.ndarray]]=None,
+    line_width:Optional[float]=0.5,
+    line_color: Optional[str]="#232324"
+                      ) -> plt.Axes:
+    """plots the adjacency matrix with the community borders.
+    It's a simple function that takes the adjacency matrix, the module labels, and the axis and plots the adjacency matrix with the community borders.
+
+    Args:
+        adj_matrix (np.ndarray): unsorted adjacency matrix of the network.
+        module_labels (list): module labels of the nodes. Shape is (N,)
+        fig (plt.Figure): which figure to plot in.
+        ax (plt.Axes): which axis to plot in.
+        heatmap_kwargs (dict): kwargs for the heatmap.
+        module_colors (Optional[Union[list, np.ndarray]], optional): colormap for the module labels. Defaults to None.
+        line_width (Optional[float], optional): width of the border line. Defaults to 0.5.
+        line_color (_Optional[str]): hex code of the line color, or matplotlib labels like 'black'. Defaults to "#232324" which is a nice black.
+
+    Returns:
+        plt.Axes: Axis with the adjacency matrix plotted.
+    """    
 
     sorted_adjacency_matrix, sorted_indices, _, borders = sort_by_fc_module(adj_matrix, module_labels)
     sns.heatmap(sorted_adjacency_matrix, ax=ax, **heatmap_kwargs)
