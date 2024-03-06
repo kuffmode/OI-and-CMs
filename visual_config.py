@@ -44,7 +44,7 @@ discretes = [
     "#A90051",  # Adjusted Red
     "#B3698D",  # Adjusted Purple
     YELLOW,
-    "#4D96FF"   # Sky Blue
+    "#4D96FF",  # Sky Blue
 ]
 
 mono_black_gray_red = sns.blend_palette(black_to_gray_to_reds, as_cmap=True)
@@ -63,6 +63,7 @@ purple_red = sns.blend_palette([PURPLEST, PURPLE, RED])
 teal_red = sns.blend_palette(teal_to_red, as_cmap=True)
 monochrome = sns.blend_palette([HALF_BLACK, GRAY], as_cmap=True)
 discrete_map = sns.blend_palette(discretes, as_cmap=True)
+
 
 def set_visual_style():
     sns.set_theme(
