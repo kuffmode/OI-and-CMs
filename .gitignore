@@ -127,3 +127,13 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+/Archive/
+/netneurotools/
+/test.png
+/Simple-Brain-Plot-main/
+.gitignore
+visualization.asv
+/results/
+Oldenburg_project.ipynb
+communicability_pre_idtxl.yml
+/IDTxl/
