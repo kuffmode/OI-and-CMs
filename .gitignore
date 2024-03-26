@@ -136,4 +136,5 @@ visualization.asv
 /results/
 Oldenburg_project.ipynb
 communicability_pre_idtxl.yml
-/IDTxl/
+/datasets/
+/logs/
