@@ -89,7 +89,7 @@ for network in networks:
     connectivity = ut.spectral_normalization(1, connectivity)
     N_NODES = len(connectivity)
 
-    NOISE_STRENGTH = 0.05
+    NOISE_STRENGTH = 0.05 # 2.0 for nonlinear
     DELTA = 0.01
     TAU = 0.02
     G = None  # 0.74 for Human, 0.64 for macaque, 0.79 for mouse, 0.1 for the "misfitted" network

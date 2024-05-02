@@ -7,8 +7,6 @@ import matplotlib
 from copy import deepcopy
 from neurolib.models.hopf import HopfModel
 from scipy.linalg import expm
-import networkx as nx
-from scipy.stats import pearsonr, spearmanr
 import seaborn as sns
 
 
@@ -110,16 +108,25 @@ def simulate_dynamical_system_parallel(
     return X
 
 
-def sar_model(adjacency_matrix: np.ndarray, omega: float) -> np.ndarray:
+def sar_model(
+    adjacency_matrix: np.ndarray, omega: float, normalize=False
+) -> np.ndarray:
     """Computes the spatial autoregressive (SAR) model for the given adjacency matrix and spatial lag parameter.
 
     Args:
         adjacency_matrix (np.ndarray): Self explanatory.
         omega (float): The spatial lag parameter of the SAR model.
+        normalize: (bool, optional): Whether to strength-normalize the adjacency matrix. Defaults to False.
 
     Returns:
         np.ndarray: The SAR model matrix (N, N)
     """
+    if normalize:
+        row_sum = adjacency_matrix.sum(1)
+        neg_sqrt = np.power(row_sum, -0.5)
+        square_sqrt = np.diag(neg_sqrt)
+        adjacency_matrix = square_sqrt @ adjacency_matrix @ square_sqrt
+
     N = adjacency_matrix.shape[0]
     sar = np.linalg.inv(np.eye(N) - omega * adjacency_matrix) @ np.linalg.inv(
         np.eye(N) - omega * adjacency_matrix.T
