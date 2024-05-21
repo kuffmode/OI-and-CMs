@@ -5,17 +5,27 @@
 - Caio Seguin<sup>2</sup>
 - Shrey Dixit<sup>1</sup>
 - Arnaud Messé<sup>1</sup>
+<<<<<<< HEAD
 - Gorka Zamora-Lopez<sup>3,4</sup>
 - Bratislav Misic<sup>5</sup>
 - Claus C. Hilgetag<sup>1,6</sup>
+=======
+- Bratislav Misic<sup>3</sup>
+- Claus C. Hilgetag<sup>1,4</sup>
+>>>>>>> origin/main
 
 <sub>
 1. Institute of Computational Neuroscience, University Medical Center Eppendorf-Hamburg, Hamburg University, Hamburg Center of Neuroscience, Germany.
 2. Department of Psychological and Brain Sciences, Indiana University, Bloomington, IN, USA.
+<<<<<<< HEAD
 3. Center for Brain and Cognition, Pompeu Fabra University, 08005 Barcelona, Spain.
 4. Department of Information and Communication Technologies, Pompeu Fabra University, 08018 Barcelona, Spain.
 5. McConnell Brain Imaging Centre, Montréal Neurological Institute, McGill University, Montréal, Canada.
 6. Department of Health Sciences, Boston University, Boston, MA, USA.
+=======
+3. McConnell Brain Imaging Centre, Montréal Neurological Institute, McGill University, Montréal, Canada.
+4. Department of Health Sciences, Boston University, Boston, MA, USA.
+>>>>>>> origin/main
 * kayson.fakhar@gmail.com
 </sub>
 
