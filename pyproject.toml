@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "oi-and-cms"
+version = "0.1.0"
+description = "Characterizing Optimal Signal Propagation in the Human Brain Network"
+authors = ["Kayson Fakhar <kayson.fakhar@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.9"
+networkx = "3.0"
+numpy = "1.26.2"
+pandas = "1.3.3"
+seaborn = "0.11.2"
+scikit-learn="1.2.1"
+numba = "0.58.1"
+neurolib = "^0.6.2"
+netneurotools = "^0.2.4"
+msapy = "1.3"
+joblib = "1.2.0"
+typeguard = "2.13.3"
+ffmpeg-python = "^0.2.0"
+
+[tool.poetry.group.dev.dependencies]
+ipykernel = "^6.29.4"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
